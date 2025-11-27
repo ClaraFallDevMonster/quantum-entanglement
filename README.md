@@ -1,70 +1,157 @@
-# Getting Started with Create React App
+# Quantum Entanglement – WebGL Orb Experiment
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project is a small interactive visual experiment about **“quantum entanglement”** in the browser.  
+Using **React**, **Three.js**, and custom **GLSL shaders**, it visualizes two glowing energy orbs (💚 Green & 💜 Magenta) that can “find” each other across multiple browser windows, become entangled, and eventually **merge into a single fused field**.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Concept
 
-### `npm start`
+When you open the app in **two separate browser windows** (with the same URL), both windows communicate indirectly via `localStorage`.  
+A simple `WindowManager` tracks:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- which orb you are: **green** or **magenta**
+- whether there is an active **partner window**
+- how close the two windows are on your screen and how much they overlap
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+From this, the app computes a dynamic **bond value (0–100%)**, which directly drives the visual behavior of the scene.
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Visual System
 
-### `npm run build`
+Everything is rendered in a single Three.js scene with multiple particle layers and a deforming orb mesh.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Core Elements
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **Main Orb Blob**
+  - Icosahedron-based mesh with high subdivision
+  - Deformed in the vertex shader using layered simplex noise (`snoise`)
+  - Controlled via uniforms:  
+    - `uTime` – time-based animation  
+    - `uPairStrength` – reacts to bond between windows  
+  - Uses a Fresnel-like effect in the fragment shader to create a glowing membrane with bright edges and a soft core
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- **Primary Particles (≈8000)**
+  - Form the core energy field around the orb
+  - Color depends on which orb you are:
+    - Green orb: greenish core particles
+    - Magenta orb: magenta core particles
+  - Animated with simple “spring” forces towards a target radius + noise-based motion  
+  - React to:
+    - **Bond strength** (radius and motion)
+    - **Merge state** (additional orbiting behavior)
+    - Approximate direction to the partner orb
 
-### `npm run eject`
+- **Accent Particles (≈1500)**
+  - Use the **complementary color** of the main orb (magenta around green, green around magenta)
+  - Sit slightly closer to the surface and move with a tighter, more energetic motion
+  - Also influenced by bond / merge, with enhanced band-like attraction to the other orb
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+---
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Fusion & “Holy Glow” Layers
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Once the bond between the two windows becomes strong enough, the system transitions into a **MERGED** state.  
+This activates two additional particle layers around the shared center:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 1. Fusion Particles (Colorful Orbiting Layer)
 
-## Learn More
+- ~1500 particles in a spherical shell around the orb(s)
+- Colors: a mix of **white**, **gold**, **cyan**, and **soft pink**
+- Each particle has:
+  - Its own orbit radius
+  - Angular speed
+  - Latitude (`phi`) and angle (`theta`)
+- Positions are updated using spherical coordinates, creating:
+  - Constant orbital motion
+  - Subtle wobble and radius pulsing
+- Particle sizes pulse over time and scale with the `mergeAmount`  
+  → Result: a vivid, energetic ring of colorful sparks once the orbs are truly fused.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 2. Holy Glow Particles (Outer Ethereal Layer)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- ~600 particles forming a **slower, more subtle aura**
+- Pure white color, rendered with a dedicated **glow fragment shader**:
+  - Softer falloff
+  - Bright core glow
+  - Gentle transparency for an “ethereal” feeling
+- Each particle:
+  - Moves very slowly around the orb
+  - Has a “breathing” motion in latitude and radius  
+  - Pulses in size, giving the impression of living, breathing light
+- Only visible in the **merged state**, sitting slightly outside the fusion layer  
+  → Result: a calm, sacred-looking halo around the fused orbs.
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Partner Orb
 
-### Analyzing the Bundle Size
+If a partner window is detected:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- A second orb is created with its own:
+  - Particle system
+  - Deforming blob mesh
+- The second orb:
+  - Mirrors the behavior of the first one
+  - Is pulled towards the shared center during the merging process
+  - Gradually hides its blob mesh as `mergeAmount` grows, visually supporting the “two become one” narrative
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## UI / HUD
 
-### Advanced Configuration
+An overlay in the corner displays:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- Current orb: **💚 GREEN ORB** or **💜 MAGENTA ORB**
+- Status:
+  - `○ SEARCHING` – no partner window yet
+  - `✓ ENTANGLED` – partner detected, bond is active
+  - `✦ MERGED` – bond strong enough, fusion & glow layers active
+- **Bond:** numeric value (0–100%)
+- Additional hints/text depending on state:
+  - Encourage moving windows closer together
+  - Explain when the orbs have fully merged
+- Anonymized short IDs of:
+  - `Me` (this window)
+  - `Partner` (the other window)
 
-### Deployment
+The HUD is styled in a small monospace terminal look and uses colors to reflect connection state (green/cyan/red).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
+## How to Use
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+1. **Open the app in one browser window**  
+   → You’ll see a single searching orb.
+
+2. **Open the same URL in a second window** (or on a second screen)  
+   → One orb becomes **green**, the other **magenta**.
+
+3. **Move and overlap the windows**  
+   - The more they overlap or approach each other, the higher the bond.
+   - Watch the HUD: bond %, status, and merge state.
+
+4. When the bond becomes strong enough:
+   - The blobs grow and blend their colors.
+   - The **Fusion Particles** layer activates.
+   - The **Holy Glow** layer fades in.
+   - Status switches to **✦ MERGED** and the UI shows **💫 QUANTUM FUSION**.
+
+---
+
+## Tech Stack
+
+- **React** (functional components, hooks)
+- **Three.js** (WebGL renderer, geometry, shaders)
+- **Custom GLSL shaders** for:
+  - Deforming blob geometry
+  - Particle rendering with glow
+- **localStorage** for lightweight multi-window communication
+- Pure JavaScript math (noise, springs, spherical coordinates) for particle motion
+
+---
+
+## Idea in One Sentence
+
+> Two browser windows become two entangled particles: their positions in your real-world screen space directly drive the behavior of glowing, procedurally animated orbs in WebGL – until they finally collapse into one **merged quantum field**.
